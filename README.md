@@ -189,6 +189,11 @@ curl "https://hng14gendername.vercel.app/api/classify?name=emmanuel"
 
 ---
 
+## API documentation
+Postman : "https://documenter.getpostman.com/view/27321084/2sBXitCnNL"
+
+---
+
 ##  Submission Checklist
 
 -  Single GET endpoint
