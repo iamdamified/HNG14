@@ -83,3 +83,6 @@ async def classify_name(name: str = Query(...)):
             "processed_at": processed_at
         }
     }
+
+
+#use "uvicorn main:app --reload" to run the server in development mode
