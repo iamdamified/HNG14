@@ -1,88 +1,88 @@
-from fastapi import FastAPI, Query, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import httpx
-from datetime import datetime, timezone
+# from fastapi import FastAPI, Query, HTTPException
+# from fastapi.middleware.cors import CORSMiddleware
+# import httpx
+# from datetime import datetime, timezone
 
-app = FastAPI()
+# app = FastAPI()
 
-# --------------------
-# CORS CONFIGURATION
-# --------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # REQUIRED BY TASK
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# # --------------------
+# # CORS CONFIGURATION
+# # --------------------
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # REQUIRED BY TASK
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
-GENDERIZE_URL = "https://api.genderize.io/"
+# GENDERIZE_URL = "https://api.genderize.io/"
 
-@app.get("/api/classify")
-async def classify_name(name: str = Query(...)):
+# @app.get("/api/classify")
+# async def classify_name(name: str = Query(...)):
 
-    # VALIDATION
-    if not name:
-        raise HTTPException(
-            status_code=400,
-            detail={"status": "error", "message": "Missing or empty name parameter"}
-        )
+#     # VALIDATION
+#     if not name:
+#         raise HTTPException(
+#             status_code=400,
+#             detail={"status": "error", "message": "Missing or empty name parameter"}
+#         )
 
-    if not isinstance(name, str):
-        raise HTTPException(
-            status_code=422,
-            detail={"status": "error", "message": "Name must be a string"}
-        )
-
-
-    # EXTERNAL API CALL
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(GENDERIZE_URL, params={"name": name})
-            response.raise_for_status()
-    except httpx.RequestError:
-        raise HTTPException(
-            status_code=502,
-            detail={"status": "error", "message": "Upstream service unavailable"}
-        )
-
-    data = response.json()
-
-    gender = data.get("gender")
-    probability = data.get("probability")
-    count = data.get("count")
+#     if not isinstance(name, str):
+#         raise HTTPException(
+#             status_code=422,
+#             detail={"status": "error", "message": "Name must be a string"}
+#         )
 
 
-    # EDGE CASE HANDLING
-    if gender is None or count == 0:
-        raise HTTPException(
-            status_code=200,
-            detail={
-                "status": "error",
-                "message": "No prediction available for the provided name"
-            }
-        )
+#     # EXTERNAL API CALL
+#     try:
+#         async with httpx.AsyncClient(timeout=5.0) as client:
+#             response = await client.get(GENDERIZE_URL, params={"name": name})
+#             response.raise_for_status()
+#     except httpx.RequestError:
+#         raise HTTPException(
+#             status_code=502,
+#             detail={"status": "error", "message": "Upstream service unavailable"}
+#         )
+
+#     data = response.json()
+
+#     gender = data.get("gender")
+#     probability = data.get("probability")
+#     count = data.get("count")
+
+
+#     # EDGE CASE HANDLING
+#     if gender is None or count == 0:
+#         raise HTTPException(
+#             status_code=200,
+#             detail={
+#                 "status": "error",
+#                 "message": "No prediction available for the provided name"
+#             }
+#         )
 
   
-    # PROCESSING LOGIC
-    sample_size = count
-    is_confident = probability >= 0.7 and sample_size >= 100
+#     # PROCESSING LOGIC
+#     sample_size = count
+#     is_confident = probability >= 0.7 and sample_size >= 100
 
-    processed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+#     processed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
    
-    # SUCCESS RESPONSE
-    return {
-        "status": "success",
-        "data": {
-            "name": name.lower(),
-            "gender": gender,
-            "probability": probability,
-            "sample_size": sample_size,
-            "is_confident": is_confident,
-            "processed_at": processed_at
-        }
-    }
+#     # SUCCESS RESPONSE
+#     return {
+#         "status": "success",
+#         "data": {
+#             "name": name.lower(),
+#             "gender": gender,
+#             "probability": probability,
+#             "sample_size": sample_size,
+#             "is_confident": is_confident,
+#             "processed_at": processed_at
+#         }
+#     }
 
 
-#use "uvicorn main:app --reload" to run the server in development mode
+# #use "uvicorn main:app --reload" to run the server in development mode
