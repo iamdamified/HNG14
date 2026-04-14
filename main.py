@@ -3,10 +3,13 @@ LOCAL DEVELOPMENT ENTRY POINT ONLY.
 Not used by Vercel deployment.
 """
 
-from fastapi import FastAPI, Query, HTTPException, Response
+
+from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import httpx
 from datetime import datetime, timezone
+import re
 
 app = FastAPI()
 
@@ -15,7 +18,7 @@ app = FastAPI()
 # --------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # REQUIRED
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,34 +26,51 @@ app.add_middleware(
 
 GENDERIZE_URL = "https://api.genderize.io"
 
+
+# --------------------
+# HELPER: BASIC NAME VALIDATION
+# --------------------
+def is_valid_name(name: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z]+", name))
+
+
+# --------------------
+# API ENDPOINT (LOCAL)
+# --------------------
 @app.get("/api/classify")
 async def classify_name(
     response: Response,
     name: str | None = Query(default=None)
 ):
-    # Ensure CORS header ALWAYS exists
+    # Always include CORS header
     response.headers["Access-Control-Allow-Origin"] = "*"
 
     # --------------------
     # VALIDATION
     # --------------------
     if name is None:
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail={"status": "error", "message": "Missing name parameter"}
+            content={"status": "error", "message": "Missing name parameter"}
         )
 
     if not isinstance(name, str):
-        raise HTTPException(
+        return JSONResponse(
             status_code=422,
-            detail={"status": "error", "message": "Name must be a string"}
+            content={"status": "error", "message": "Name must be a string"}
         )
 
     name = name.strip()
     if name == "":
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail={"status": "error", "message": "Empty name parameter"}
+            content={"status": "error", "message": "Empty name parameter"}
+        )
+
+    if not is_valid_name(name):
+        return JSONResponse(
+            status_code=422,
+            content={"status": "error", "message": "Invalid or unrecognizable name"}
         )
 
     # --------------------
@@ -58,18 +78,15 @@ async def classify_name(
     # --------------------
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            api_response = await client.get(
-                GENDERIZE_URL,
-                params={"name": name}
-            )
-            api_response.raise_for_status()
+            r = await client.get(GENDERIZE_URL, params={"name": name})
+            r.raise_for_status()
     except httpx.RequestError:
-        raise HTTPException(
+        return JSONResponse(
             status_code=502,
-            detail={"status": "error", "message": "Upstream service unavailable"}
+            content={"status": "error", "message": "Upstream service unavailable"}
         )
 
-    data = api_response.json()
+    data = r.json()
 
     gender = data.get("gender")
     probability = data.get("probability")
@@ -78,10 +95,10 @@ async def classify_name(
     # --------------------
     # EDGE CASE HANDLING
     # --------------------
-    if gender is None or sample_size == 0:
-        raise HTTPException(
+    if gender is None or sample_size is None or sample_size == 0:
+        return JSONResponse(
             status_code=200,
-            detail={
+            content={
                 "status": "error",
                 "message": "No prediction available for the provided name"
             }
@@ -120,14 +137,16 @@ async def classify_name(
         }
     }
 
-# Run locally with:
+
+# --------------------
+# RUN LOCALLY
+# --------------------
 # uvicorn main:app --reload
 
 
 
 
-
-# from fastapi import FastAPI, Query, HTTPException
+# from fastapi import FastAPI, Query, HTTPException, Response
 # from fastapi.middleware.cors import CORSMiddleware
 # import httpx
 # from datetime import datetime, timezone
@@ -139,22 +158,29 @@ async def classify_name(
 # # --------------------
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=["*"],  # REQUIRED BY TASK
+#     allow_origins=["*"],  # REQUIRED
 #     allow_credentials=True,
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
 
-# GENDERIZE_URL = "https://api.genderize.io/"
+# GENDERIZE_URL = "https://api.genderize.io"
 
 # @app.get("/api/classify")
-# async def classify_name(name: str = Query(...)):
+# async def classify_name(
+#     response: Response,
+#     name: str | None = Query(default=None)
+# ):
+#     # Ensure CORS header ALWAYS exists
+#     response.headers["Access-Control-Allow-Origin"] = "*"
 
+#     # --------------------
 #     # VALIDATION
-#     if not name:
+#     # --------------------
+#     if name is None:
 #         raise HTTPException(
 #             status_code=400,
-#             detail={"status": "error", "message": "Missing or empty name parameter"}
+#             detail={"status": "error", "message": "Missing name parameter"}
 #         )
 
 #     if not isinstance(name, str):
@@ -163,27 +189,39 @@ async def classify_name(
 #             detail={"status": "error", "message": "Name must be a string"}
 #         )
 
+#     name = name.strip()
+#     if name == "":
+#         raise HTTPException(
+#             status_code=400,
+#             detail={"status": "error", "message": "Empty name parameter"}
+#         )
 
+#     # --------------------
 #     # EXTERNAL API CALL
+#     # --------------------
 #     try:
 #         async with httpx.AsyncClient(timeout=5.0) as client:
-#             response = await client.get(GENDERIZE_URL, params={"name": name})
-#             response.raise_for_status()
+#             api_response = await client.get(
+#                 GENDERIZE_URL,
+#                 params={"name": name}
+#             )
+#             api_response.raise_for_status()
 #     except httpx.RequestError:
 #         raise HTTPException(
 #             status_code=502,
 #             detail={"status": "error", "message": "Upstream service unavailable"}
 #         )
 
-#     data = response.json()
+#     data = api_response.json()
 
 #     gender = data.get("gender")
 #     probability = data.get("probability")
-#     count = data.get("count")
+#     sample_size = data.get("count")
 
-
+#     # --------------------
 #     # EDGE CASE HANDLING
-#     if gender is None or count == 0:
+#     # --------------------
+#     if gender is None or sample_size == 0:
 #         raise HTTPException(
 #             status_code=200,
 #             detail={
@@ -192,15 +230,27 @@ async def classify_name(
 #             }
 #         )
 
-  
-#     # PROCESSING LOGIC
-#     sample_size = count
-#     is_confident = probability >= 0.7 and sample_size >= 100
+#     # --------------------
+#     # CONFIDENCE LOGIC
+#     # --------------------
+#     is_confident = (
+#         isinstance(probability, (int, float))
+#         and probability >= 0.7
+#         and sample_size >= 100
+#     )
 
-#     processed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+#     # --------------------
+#     # TIMESTAMP
+#     # --------------------
+#     processed_at = (
+#         datetime.now(timezone.utc)
+#         .isoformat()
+#         .replace("+00:00", "Z")
+#     )
 
-   
+#     # --------------------
 #     # SUCCESS RESPONSE
+#     # --------------------
 #     return {
 #         "status": "success",
 #         "data": {
@@ -213,5 +263,7 @@ async def classify_name(
 #         }
 #     }
 
+# # Run locally with:
+# # uvicorn main:app --reload
 
-# #use "uvicorn main:app --reload" to run the server in development mode
+
