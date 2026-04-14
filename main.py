@@ -1,3 +1,8 @@
+"""
+LOCAL DEVELOPMENT ENTRY POINT ONLY.
+Not used by Vercel deployment.
+"""
+
 from fastapi import FastAPI, Query, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
